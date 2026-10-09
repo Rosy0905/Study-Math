@@ -1,0 +1,11 @@
+# 录题过程临时产物（不纳入版本库）
+_ex*/
+_tmp_scripts/
+pdf-extract/
+_ch*/
+_*.png
+_*.py
+*.bak
+*.bak-*
+.DS_Store
+Thumbs.db
