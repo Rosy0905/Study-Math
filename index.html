@@ -153,6 +153,10 @@ select{font-family:inherit;cursor:pointer}
   opacity:0;transition:.24s;pointer-events:none;z-index:120;box-shadow:0 6px 20px rgba(0,0,0,.2)}
 .toast.on{opacity:1;transform:translateX(-50%)}
 .katex{font-size:1.02em}
+/* 26/10/11：显示公式（$$...$$）行距。配合 app.js 里「删掉紧贴显示公式的 <br>」，
+   让公式之间只剩自然呼吸感（0.7em），不再被 <br> 空行 + KaTeX 默认 1em 边距撑出大空隙。
+   只作用于答案区；题面/行内公式不受影响。 */
+.c-a .katex-display{margin:0.7em 0}
 /* 公式超宽处理（不改动 .card 的 overflow:hidden）
    ① 块级公式（.katex-display）整体作为横向滚动容器，超宽时不裁切；
       · overflow-y:hidden 防止出现多余的纵向滚动条；

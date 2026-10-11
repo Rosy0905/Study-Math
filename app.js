@@ -31,6 +31,18 @@
   function nl2br(s) {
     return String(s == null ? '' : s).replace(/\r\n?/g, '\n').replace(/\n/g, '<br>');
   }
+  /* 26/10/11：修复「显示公式（$$...$$）之间被 <br> 空行 + KaTeX 默认 1em 边距撑出大空隙」。
+     只删掉“紧贴显示公式 .katex-display 的 <br>”——普通文字换行、行内公式（$...$）旁的 <br>
+     一律不动，不影响此前已处理好的换行逻辑。配合 index.html 的 .c-a .katex-display{margin:0.7em 0}。 */
+  function stripBrAroundDisplay(root) {
+    if (!root) return;
+    root.querySelectorAll('br').forEach(function (br) {
+      var prev = br.previousElementSibling, next = br.nextElementSibling;
+      var prevDisp = prev && prev.classList && prev.classList.contains('katex-host') && prev.querySelector('.katex-display');
+      var nextDisp = next && next.classList && next.classList.contains('katex-host') && next.querySelector('.katex-display');
+      if (prevDisp || nextDisp) br.remove();
+    });
+  }
   function renderMath(root) {
     if (window.__richNote && window.__richNote.renderMathIn) {
       try { window.__richNote.renderMathIn(root); } catch (_) {}
@@ -69,6 +81,7 @@
       return;
     }
     renderMath(el);
+    stripBrAroundDisplay(el);
     renderCache.set(key, el.innerHTML);
     el.dataset.mathDone = '1';
   }
