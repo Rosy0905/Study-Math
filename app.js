@@ -386,10 +386,10 @@
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = '数学错题本备份-' + new Date().toISOString().slice(0, 10) + '.json';
+    a.download = '数学正误备份-' + new Date().toISOString().slice(0, 10) + '.json';
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    toast('已导出 ' + data.problems.length + ' 题');
+    toast('已导出 ' + data.status.length + ' 条正误标记');
   }
   function doImport() {
     const inp = document.createElement('input');
@@ -400,10 +400,12 @@
       try {
         const data = JSON.parse(await f.text());
         const r = await window.MDB.importAll(data);
-        const [ps, ss] = await Promise.all([window.MDB.allProblems(), window.MDB.allStatus()]);
-        state.problems = ps; state.status = ss || {};
-        buildSide(); applyFilter();
-        toast('导入 ' + r.added + ' 题，跳过重复 ' + r.skipped + ' 题');
+      const [ps, ss] = await Promise.all([window.MDB.allProblems(), window.MDB.allStatus()]);
+      state.problems = ps; state.status = ss || {};
+      buildSide(); applyFilter();
+      let msg = '已恢复 ' + r.stSet + ' 条正误标记';
+      if (r.added) msg += '，补回 ' + r.added + ' 道题';
+      toast(msg);
       } catch (e) { toast('导入失败：' + e.message); }
     };
     inp.click();
@@ -447,8 +449,11 @@
       const ver = window.SEED_VERSION || 1;
       const applied = Number(localStorage.getItem('studyMathSeedVer') || 0);
       /* 版本不一致（首次安装 / 题库被修正 / 新增题目）就按种子重灌 problems 表，
-         保证浏览器里「所见即种子」。注意：正误标记在独立的 status 表，不受影响。 */
-      if (seed.length && applied !== ver) {
+         保证浏览器里「所见即种子」。注意：正误标记在独立的 status 表，不受影响。
+         26/10/25：额外加一道自愈——库里压根没题也重灌。备份改成只带正误标记后，
+         换新环境导入备份时版本号对得上但表是空的，不灌就会显示 0 题。 */
+      const existing = await window.MDB.allProblems();
+      if (seed.length && (applied !== ver || !existing.length)) {
         await window.MDB.clearProblems();
         await window.MDB.putProblems(seed);
         localStorage.setItem('studyMathSeedVer', String(ver));

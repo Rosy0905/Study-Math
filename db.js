@@ -20,10 +20,15 @@
     return Promise.resolve();
   }
 
+  /* 版本号 2：26/10/25 从 1 提到 2。备份改成只带正误标记后，新环境导入备份时
+     库会被主站以 version 1 重建且只有 status 表——版本号不变就不触发 upgrade，
+     problems 表补不出来，站点直接挂。提到 2 后每次打开都会过一遍 upgrade，
+     ensureStores 幂等，缺啥补啥，已有的表不动。 */
+  const DB_VERSION = 2;
   function open() {
     if (cached) return Promise.resolve(cached);
     return new Promise((res, rej) => {
-      const r = indexedDB.open(NAME, 1);
+      const r = indexedDB.open(NAME, DB_VERSION);
       r.onupgradeneeded = () => {
         const db = r.result;
         STORES.forEach(s => {
@@ -151,21 +156,24 @@
   }
 
   /* ---------------- 备份：整库导出 / 导入 ---------------- */
+  /* 导出只带正误标记：题库是随站发行的内容（版本号会自动重灌），
+     不属于学习数据，备份里不放它，文件也小得多。
+     problems 字段保留空数组是为了结构稳定，导入时旧备份照常合并。 */
   async function exportAll() {
     const db = await open();
-    const problems = await req(db, 'readonly', 'problems', st => st.getAll());
     const status   = await req(db, 'readonly', 'status',   st => st.getAll());
     return {
       app: 'Study-Math', version: 3, exportedAt: new Date().toISOString(),
-      problems: problems || [], status: status || [],
+      problems: [], status: status || [],
     };
   }
-  /* 导入：合并不覆盖（同 id 已存在则跳过） */
+  /* 导入：合并不覆盖（同 id 已存在则跳过）。problems 为空是正常的——
+     现在备份只带正误标记，题库靠版本号自动重灌 */
   async function importAll(data) {
     if (!data || data.app !== 'Study-Math') throw new Error('不是数学错题本的备份文件');
     const db = await open();
     const existP = new Set((await req(db, 'readonly', 'problems', st => st.getAllKeys())) || []);
-    let added = 0, skipped = 0;
+    let added = 0, skipped = 0, stSet = 0;
     for (const rec of data.problems || []) {
       if (!rec || !rec.id) continue;
       if (existP.has(rec.id)) { skipped++; continue; }
@@ -175,8 +183,9 @@
     for (const rec of data.status || []) {
       if (!rec || !rec.id || !rec.st) continue;
       await tx(db, 'readwrite', 'status', st => st.put(rec));
+      stSet++;
     }
-    return { added: added, skipped: skipped };
+    return { added: added, skipped: skipped, stSet: stSet };
   }
 
   async function destroy() {
