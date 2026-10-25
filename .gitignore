@@ -9,3 +9,4 @@ _*.py
 *.bak-*
 .DS_Store
 Thumbs.db
+_备份/
